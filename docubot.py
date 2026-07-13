@@ -50,7 +50,6 @@ class DocuBot:
 
     def build_index(self, documents):
         """
-        TODO (Phase 1):
         Build a tiny inverted index mapping lowercase words to the documents
         they appear in.
 
@@ -64,7 +63,15 @@ class DocuBot:
         ignore punctuation if needed.
         """
         index = {}
-        # TODO: implement simple indexing
+        for filename, text in documents:
+            for raw_token in text.split():
+                token = raw_token.lower().strip(".,!?;:\"'()[]{}`*_#/-")
+                if not token:
+                    continue
+                if token not in index:
+                    index[token] = []
+                if filename not in index[token]:
+                    index[token].append(filename)
         return index
 
     # -----------------------------------------------------------
@@ -73,26 +80,54 @@ class DocuBot:
 
     def score_document(self, query, text):
         """
-        TODO (Phase 1):
         Return a simple relevance score for how well the text matches the query.
 
-        Suggested baseline:
+        Baseline:
         - Convert query into lowercase words
         - Count how many appear in the text
         - Return the count as the score
         """
-        # TODO: implement scoring
-        return 0
+        query_words = [
+            w.strip(".,!?;:\"'()[]{}`*_#/-")
+            for w in query.lower().split()
+        ]
+        text_lower = text.lower()
+        score = 0
+        for word in query_words:
+            if word and word in text_lower:
+                score += 1
+        return score
 
     def retrieve(self, query, top_k=3):
         """
-        TODO (Phase 1):
         Use the index and scoring function to select top_k relevant document snippets.
 
         Return a list of (filename, text) sorted by score descending.
         """
-        results = []
-        # TODO: implement retrieval logic
+        query_words = [
+            w.strip(".,!?;:\"'()[]{}`*_#/-")
+            for w in query.lower().split()
+        ]
+
+        # Collect candidate filenames that contain any query word
+        candidates = set()
+        for word in query_words:
+            if word and word in self.index:
+                candidates.update(self.index[word])
+
+        docs_by_name = {filename: text for filename, text in self.documents}
+
+        # Score each candidate document
+        scored = []
+        for filename in candidates:
+            text = docs_by_name[filename]
+            score = self.score_document(query, text)
+            if score > 0:
+                scored.append((score, filename, text))
+
+        # Best matches first
+        scored.sort(key=lambda item: item[0], reverse=True)
+        results = [(filename, text) for _, filename, text in scored]
         return results[:top_k]
 
     # -----------------------------------------------------------
