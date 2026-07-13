@@ -67,18 +67,19 @@ class GeminiClient:
     def answer_from_snippets(self, query, snippets):
         """
         Phase 2:
-        Generate an answer using only the retrieved snippets.
+        Generate a clear, grounded answer using only the retrieved snippets.
 
         snippets: list of (filename, text) tuples selected by DocuBot.retrieve
 
-        The prompt:
-        - Shows each snippet with its filename
-        - Instructs the model to rely only on these snippets
-        - Requires an explicit "I do not know" refusal when needed
+        The prompt balances clarity and evidence:
+        - Short developer-facing answers
+        - Strict use of provided snippets only
+        - File citations
+        - Refuse only when the snippets do not support an answer
         """
 
         if not snippets:
-            return "I do not know based on the docs I have."
+            return "I'm not so sure based on these docs."
 
         context_blocks = []
         for filename, text in snippets:
@@ -88,15 +89,10 @@ class GeminiClient:
         context = "\n\n".join(context_blocks)
 
         prompt = f"""
-You are a cautious documentation assistant helping developers understand a codebase.
+You are a documentation assistant helping developers understand a codebase.
 
-You will receive:
-- A developer question
-- A small set of snippets from project files
-
-Your job:
-- Answer the question using only the information in the snippets.
-- If the snippets do not provide enough evidence, refuse to guess.
+You will receive a developer question and a small set of project snippets.
+Write a short, clear answer that a developer can act on.
 
 Snippets:
 {context}
@@ -105,11 +101,13 @@ Developer question:
 {query}
 
 Rules:
-- Use only the information in the snippets. Do not invent new functions,
-  endpoints, or configuration values.
-- If the snippets are not enough to answer confidently, reply exactly:
-  "I do not know based on the docs I have."
-- When you do answer, briefly mention which files you relied on.
+- Use only the information in the snippets. Do not invent functions,
+  endpoints, file names, or configuration values.
+- Prefer a direct answer when the snippets support it. Do not refuse
+  just because details are incomplete if the main question is answered.
+- Briefly mention which file(s) you relied on.
+- Only if the snippets do not support an answer, reply exactly:
+  "I'm not so sure based on these docs."
 """
 
         try:
